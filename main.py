@@ -1,0 +1,38 @@
+import streamlit as st
+from streamlit_option_menu import option_menu
+
+def main():
+    st.set_page_config(page_title="EDA Explorer", layout="wide")
+    st.title("🔍 EDA Explorer with AI Insights")
+    
+    # Sidebar Navigation
+    with st.sidebar:
+        selected = option_menu(
+            menu_title="Navigation", 
+            options=["Home", "Before Cleaning", "Data Cleaning", "After Cleaning", "Visualization", "Hypothesis & Report"],
+            icons=["house", "clipboard-data", "tools", "check-circle", "bar-chart", "file-earmark-text"],
+            menu_icon="cast",
+            default_index=0
+        )
+    
+    if selected == "Home":
+        import home
+        home.show()
+    elif selected == "Before Cleaning":
+        import before_cleaning
+        before_cleaning.show()
+    elif selected == "Data Cleaning":
+        import data_cleaning
+        data_cleaning.show()
+    elif selected == "After Cleaning":
+        import after_cleaning
+        after_cleaning.show()
+    elif selected == "Visualization":
+        import visualization
+        visualization.show()
+    elif selected == "Hypothesis & Report":
+        import hypothesis_report
+        hypothesis_report.show()
+
+if __name__ == "__main__":
+    main()
