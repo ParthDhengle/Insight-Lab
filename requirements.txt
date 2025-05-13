@@ -8,3 +8,7 @@ google-generativeai
 pdfkit
 pillow
 wordcloud
+streamlit_option_menu
+pyyaml
+fpdf
+scipy

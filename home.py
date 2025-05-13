@@ -35,6 +35,8 @@ def show():
                 return
             
             # Store DataFrame in session state
+            filename = uploaded_file.name
+            st.session_state['filename'] = filename
             st.session_state['uploaded_file'] = uploaded_file  # Store file reference
             st.session_state['original_df'] = df.copy()  # Store a copy of original dataset
             st.session_state['dataframe'] = df.copy() 

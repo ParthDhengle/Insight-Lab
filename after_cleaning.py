@@ -71,11 +71,12 @@ def show():
 
     # Download Cleaned Data
     st.subheader("📥 Download Cleaned Dataset")
+    cleaned_filename = "cleaned_" + st.session_state.get('filename', 'dataset.csv')
     csv = cleaned_df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📩 Download CSV",
         data=csv,
-        file_name="cleaned_dataset.csv",
+        file_name=cleaned_filename,
         mime="text/csv"
     )
 

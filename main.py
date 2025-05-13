@@ -9,7 +9,7 @@ def main():
     with st.sidebar:
         selected = option_menu(
             menu_title="Navigation", 
-            options=["Home", "Before Cleaning", "Data Cleaning", "After Cleaning", "Visualization", "Hypothesis & Report"],
+            options=["Home", "Before Cleaning", "Data Cleaning", "After Cleaning", "Visualization", "Ai Powered Report Generation"],
             icons=["house", "clipboard-data", "tools", "check-circle", "bar-chart", "file-earmark-text"],
             menu_icon="cast",
             default_index=0
@@ -30,7 +30,7 @@ def main():
     elif selected == "Visualization":
         import visualization
         visualization.show()
-    elif selected == "Hypothesis & Report":
+    elif selected == "Ai Powered Report Generation":
         import hypothesis_report
         hypothesis_report.show()
 

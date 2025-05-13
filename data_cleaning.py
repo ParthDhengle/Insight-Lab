@@ -4,87 +4,159 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# ——————————————————————————————
+# 🧠 Helper Functions
+# ——————————————————————————————
+
+def drop_high_missing(df, threshold):
+    missing_ratio = df.isnull().mean()
+    cols_to_drop = missing_ratio[missing_ratio >= threshold].index.tolist()
+    df_cleaned = df.drop(columns=cols_to_drop)
+    return df_cleaned, cols_to_drop
+
+def impute_missing(df, num_strategy, cat_strategy, constant):
+    df_copy = df.copy()
+    for col in df_copy.columns:
+        if df_copy[col].isnull().sum() == 0:
+            continue
+        if df_copy[col].dtype in ['int64', 'float64']:
+            if num_strategy == "mean":
+                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+            elif num_strategy == "median":
+                df_copy[col].fillna(df_copy[col].median(), inplace=True)
+            else:
+                df_copy[col].fillna(constant, inplace=True)
+        else:
+            if cat_strategy == "mode":
+                mode_val = df_copy[col].mode()
+                df_copy[col].fillna(mode_val[0] if not mode_val.empty else constant, inplace=True)
+            else:
+                df_copy[col].fillna(constant, inplace=True)
+    return df_copy
+
+def remove_duplicates(df):
+    before = len(df)
+    df_clean = df.drop_duplicates()
+    removed = before - len(df_clean)
+    return df_clean, removed
+
+def handle_outliers(df, k=1.5):
+    numeric_df = df.select_dtypes(include='number')
+    Q1 = numeric_df.quantile(0.25)
+    Q3 = numeric_df.quantile(0.75)
+    IQR = Q3 - Q1
+    condition = ~((numeric_df < (Q1 - k * IQR)) | (numeric_df > (Q3 + k * IQR))).any(axis=1)
+    df_filtered = df[condition]
+    outliers_removed = len(df) - len(df_filtered)
+    return df_filtered, outliers_removed
+
+# ——————————————————————————————
+# 🚿 Cleaning Page Main Function
+# ——————————————————————————————
+
 def show():
+    st.sidebar.header("⚙️ Cleaning Options")
+    missing_thresh = st.sidebar.slider("Drop columns if missing ≥ (%)", 0, 100, 50) / 100
+    num_strategy = st.sidebar.selectbox("Numeric Imputation", ["median", "mean", "constant"])
+    cat_strategy = st.sidebar.selectbox("Categorical Imputation", ["mode", "constant"])
+    fill_constant = st.sidebar.text_input("Constant Value", "Unknown")
+    iqr_multiplier = st.sidebar.number_input("Outlier IQR Multiplier", 1.0, 3.0, step=0.1)
+
     st.title("🛠 Data Cleaning")
 
-    # Ensure dataset is available
+    # Check if data is uploaded
     if 'dataframe' not in st.session_state:
         st.warning("⚠️ No dataset found. Please upload a CSV file from the Home page.")
         return
+
+    if 'history' not in st.session_state:
+        st.session_state.history = [st.session_state['dataframe'].copy()]
 
     df = st.session_state['dataframe']
 
     st.subheader("📂 Current Data Preview")
     st.dataframe(df.head())
 
-    # Step 1: Handle Missing Values
+    st.subheader("⚡Run all steps at once")
+
+    col1, col2= st.columns(2)
+
+    with col1:
+        if st.button("🚀 Run All Steps"):
+            df_cleaned, dropped_cols = drop_high_missing(df, missing_thresh)
+            df_cleaned = impute_missing(df_cleaned, num_strategy, cat_strategy, fill_constant)
+            df_cleaned, dupes = remove_duplicates(df_cleaned)
+            df_cleaned, outliers = handle_outliers(df_cleaned, iqr_multiplier)
+            st.session_state['dataframe'] = df_cleaned
+            st.session_state.history.append(df_cleaned.copy())
+            st.success(
+                f"Dropped {len(dropped_cols)} columns, "
+                f"Removed {dupes} duplicates, "
+                f"Removed {outliers} outliers."
+            )
+        
+    with col2:
+        if st.button("↩️ Undo Last"):
+            if len(st.session_state.history) > 1:
+                st.session_state.history.pop()
+                st.session_state['dataframe'] = st.session_state.history[-1]
+                st.success("Reverted to previous version.")
+                st.rerun()
+
+    st.subheader("𓊍 Or Run Each Step Individually")
+    st.write("Click the buttons below to handle specific data cleaning tasks.")    
+
     if st.button("🧹 Handle Missing Values"):
-        df.fillna(df.median(numeric_only=True), inplace=True)  # Fill numeric columns with median
-        df.fillna(df.mode(), inplace=True)  # Fill categorical columns with 'Unknown'
-        st.session_state['dataframe'] = df  # Update session state
-        st.success("✅ Missing values handled!")
-        st.dataframe(df.head())
-
-    # Step 2: Remove Duplicates
+        df_cleaned, dropped = drop_high_missing(df, missing_thresh)
+        df_cleaned = impute_missing(df_cleaned, num_strategy, cat_strategy, fill_constant)
+        st.session_state['dataframe'] = df_cleaned
+        st.session_state.history.append(df_cleaned.copy())
+        st.success(f"Handled missing values. Dropped columns: {dropped}")
+    
     if st.button("🗑 Remove Duplicates"):
-        before = len(df)
-        df.drop_duplicates(inplace=True)
-        after = len(df)
-        st.session_state['dataframe'] = df  # Update session state
-        st.success(f"✅ Removed {before - after} duplicate rows.")
-        st.dataframe(df.head())
+            df_cleaned, removed = remove_duplicates(df)
+            st.session_state['dataframe'] = df_cleaned
+            st.session_state.history.append(df_cleaned.copy())
+            st.success(f"Removed {removed} duplicate rows.")
 
-    # Step 3: Convert Data Types
-    if st.button("🔄 Convert Data Types"):
-        for col in df.columns:
-            if df[col].dtype == 'object':  # Convert categorical columns to category type
-                df[col] = df[col].astype('category')
-            elif df[col].dtype == 'float64':  # Convert floats that look like integers to int
-                if all(df[col].dropna().apply(float.is_integer)):
-                    df[col] = df[col].astype('int64')
-        st.session_state['dataframe'] = df  # Update session state
-        st.success("✅ Data types corrected!")
-        st.dataframe(df.dtypes)
+    if st.button("🔄 Fix Data Types"):
+        df_copy = df.copy()
+        for col in df_copy.select_dtypes(include='object'):
+            try:
+                df_copy[col] = pd.to_datetime(df_copy[col], errors='raise')
+            except:
+                df_copy[col] = df_copy[col].astype('category')
+        for col in df_copy.select_dtypes(include='float64'):
+            if df_copy[col].dropna().apply(float.is_integer).all():
+                df_copy[col] = df_copy[col].astype('int64')
+        st.session_state['dataframe'] = df_copy
+        st.session_state.history.append(df_copy.copy())
+        st.success("✅ Converted column types.")
 
-    # Step 4: Handle Outliers (Using IQR)
-    if st.button("📉 Handle Outliers"):
-        before = len(df)
-        
-        # Select only numeric columns for outlier removal
-        numeric_cols = df.select_dtypes(include=['number']).columns
-        Q1 = df[numeric_cols].quantile(0.25)
-        Q3 = df[numeric_cols].quantile(0.75)
-        IQR = Q3 - Q1
-        
-        # Filter only numeric columns
-        filter_mask = ~((df[numeric_cols] < (Q1 - 1.5 * IQR)) | (df[numeric_cols] > (Q3 + 1.5 * IQR))).any(axis=1)
+    if st.button("📉 Remove Outliers"):
+        df_filtered, removed = handle_outliers(df, iqr_multiplier)
+        st.session_state['dataframe'] = df_filtered
+        st.session_state.history.append(df_filtered.copy())
+        st.success(f"Removed {removed} rows with outliers.")
 
-        # Apply filtering to the full dataframe
-        df = df[filter_mask]
-
-        after = len(df)
-        st.session_state['dataframe'] = df  # Update session state
-        st.success(f"✅ Removed {before - after} rows containing outliers.")
-        st.dataframe(df.head())
-
-
-    # Step 6: Save Cleaned Data
     if st.button("💾 Save Cleaned Data"):
-        st.session_state['dataframe'] = df.copy() 
-        st.success("✅ Cleaned data saved! You can now proceed to 'After Cleaning'.")
+        st.success("✅ Cleaned data saved! Proceed to the next page.")
+        # You can export to CSV or keep it for downstream use
 
-    # Custom Query Section
-    st.subheader("🔍 Run Your Own Query")
-    st.write("Enter a **pandas query** (e.g., `df[df['column_name'] > 100]`) and run it on the dataset.")
+    # Final preview
+    st.subheader("📂 Preview Cleaned Data")
+    st.dataframe(st.session_state['dataframe'].head())
 
-    user_query = st.text_area("Enter your pandas command here (use `df` as your dataset):")
+    st.subheader("🔍 Custom Query (Python code)")
+    query = st.text_area("Type a pandas command using `df`:")
 
     if st.button("▶ Run Query"):
         try:
-            # Execute the user's query safely
-            result = eval(user_query, {'df': df, 'pd': pd, 'np': np})
-            st.write("✅ **Query Result:**")
-            st.dataframe(result)
-
+            df = st.session_state['dataframe']  # Reference the actual df
+            exec(query, {"pd": pd, "np": np}, {"df": df})  # Mutates df in-place
+            st.session_state.history.append(df.copy())     # Save to history
+            st.success("✅ Query executed successfully.")
+            st.dataframe(df.head())
         except Exception as e:
-            st.error(f"❌ Error in query execution: {e}")
+            st.error(f"Error: {e}")
+

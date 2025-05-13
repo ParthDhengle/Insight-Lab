@@ -14,23 +14,32 @@ def show():
 
     df = st.session_state['dataframe']
 
+    st.info(f"🧮 Dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
+
+
     st.subheader("📂 Dataset Preview")
     st.dataframe(df.head())
 
     st.subheader("📊 Dataset Overview")
     st.write(df.describe())
 
+    def dataframe_info(df):
+        info_df = pd.DataFrame({
+            'Column': df.columns,
+            'Non-Null Count': df.notnull().sum().values,
+            'Dtype': df.dtypes.values
+        })
+        return info_df
+
     st.subheader("📊 Dataset Info")
-    # Capture df.info() output
-    buffer = io.StringIO()
-    df.info(buf=buffer)
-    info_str = buffer.getvalue()
-    st.text(info_str)
+    st.dataframe(dataframe_info(df))
+
 
     st.subheader("❗ Missing Values")
     missing_values = df.isnull().sum()
+    missing_values = missing_values[missing_values > 0]  # Only plot those with missing data
 
-    if missing_values.sum() == 0:
+    if missing_values.empty:
         st.success("✅ No missing values detected!")
     else:
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -40,4 +49,18 @@ def show():
         plt.ylabel("Missing Values Count")
         st.pyplot(fig)
 
+    numeric_df = df.select_dtypes(include=['float64', 'int64'])
+    if numeric_df.empty:
+        st.warning("⚠️ No numeric columns available for boxplot.")
+    else:
+        # Create boxplot for numeric columns
+        st.subheader("📦 Boxplot of Numeric Features (Outlier Detection)")
+        fig, ax = plt.subplots(figsize=(10, 4))
+        sns.boxplot(data=numeric_df, ax=ax)
+        plt.title("Boxplot of Numeric Features")
+        plt.xticks(rotation=45)
+        plt.xlabel("Columns")
+        plt.ylabel("Value Range")
+        st.pyplot(fig)
+    
     st.write("➡️ **Proceed to the 'Data Cleaning' page to clean the dataset!**")
