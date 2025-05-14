@@ -16,10 +16,10 @@ def clear_plot_folder():
                 print(f"Error deleting {file_path}: {e}")
 
 def show():
-    st.title("🏠 Welcome to EDA Explorer")
+    st.title("🏠 Welcome to Insight Lab")
     
     st.write("""
-    **EDA Explorer** is an interactive tool that helps you analyze datasets step by step. Follow the structured process:
+    **Insight Lab** is an interactive tool that helps you analyze datasets step by step. Follow the structured process:
     
     1️⃣ **Before Cleaning** - Explore the raw dataset.
     
@@ -34,7 +34,7 @@ def show():
     
     st.subheader("📌 How It Works")
 
-    flowchart = Image.open("assets/EDA Flowchart.jpg")  # Ensure the correct path
+    flowchart = Image.open("assets/InsightLab3.jpg")  # Ensure the correct path
     st.image(flowchart, caption="EDA Process Flow")
 
     st.write("### 📂 Upload a CSV File to Start")

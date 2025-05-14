@@ -121,14 +121,5 @@ def show():
             )
         st.success("✅ Your PDF report is ready!")
 
-    # 5) Custom query
-    st.subheader("📝 Run Custom Query")
-    user_q = st.text_area("Enter a pandas command (e.g. `df.describe()`)", "df.head()")
-    if st.button("Execute"):
-        try:
-            result = eval(user_q, {"df": df, "pd": pd, "sns": sns, "plt": plt, "np": np})
-            st.write(result)
-        except Exception as e:
-            st.error(f"Error executing query: {e}")
-
+    
     st.success("🏁 Report generation complete!")

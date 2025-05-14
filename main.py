@@ -3,7 +3,9 @@ from streamlit_option_menu import option_menu
 
 def main():
     st.set_page_config(page_title="EDA Explorer", layout="wide")
-    st.title("🔍 EDA Explorer with AI Insights")
+    st.title("🔍 Insight Lab ")
+    st.subheader("*AI-Driven Data Insights*")
+
     
     # Sidebar Navigation
     with st.sidebar:
@@ -31,8 +33,8 @@ def main():
         import visualization
         visualization.show()
     elif selected == "Ai Powered Report Generation":
-        import hypothesis_report
-        hypothesis_report.show()
+        import Ai_report
+        Ai_report.show()
 
 if __name__ == "__main__":
     main()
