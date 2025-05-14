@@ -1,6 +1,19 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
+import os
+import shutil
+
+def clear_plot_folder():
+    plot_folder = "plots"
+    if os.path.exists(plot_folder):
+        for filename in os.listdir(plot_folder):
+            file_path = os.path.join(plot_folder, filename)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                print(f"Error deleting {file_path}: {e}")
 
 def show():
     st.title("🏠 Welcome to EDA Explorer")
@@ -21,7 +34,7 @@ def show():
     
     st.subheader("📌 How It Works")
 
-    flowchart = Image.open("assets/eda-FlowChart.png")  # Ensure the correct path
+    flowchart = Image.open("assets/EDA Flowchart.jpg")  # Ensure the correct path
     st.image(flowchart, caption="EDA Process Flow")
 
     st.write("### 📂 Upload a CSV File to Start")
@@ -29,6 +42,7 @@ def show():
     
     if uploaded_file:
         try:
+            clear_plot_folder()
             df = pd.read_csv(uploaded_file)
             if df.empty:
                 st.error("❌ The uploaded file is empty. Please upload a valid CSV file.")

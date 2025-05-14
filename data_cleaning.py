@@ -89,8 +89,9 @@ def show():
             df_cleaned, outliers = handle_outliers(df_cleaned, iqr_multiplier)
             st.session_state['dataframe'] = df_cleaned
             st.session_state.history.append(df_cleaned.copy())
+            dropped_cols_str = ', '.join(dropped_cols) if dropped_cols else 'None'
             st.success(
-                f"Dropped {len(dropped_cols)} columns, "
+                f"Dropped {len(dropped_cols)} columns, columns: {dropped_cols_str}\n\n"
                 f"Removed {dupes} duplicates, "
                 f"Removed {outliers} outliers."
             )

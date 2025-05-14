@@ -16,30 +16,6 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 import os
 import streamlit as st
 
-def save_and_report(fig, title, insight_text, filename=None):
-    os.makedirs("plots", exist_ok=True)
-    
-    # Auto-generate filename if not provided
-    if not filename:
-        sanitized_title = title.replace(" ", "_").replace(":", "").replace(",", "")
-        filename = f"plots/{sanitized_title}.png"
-
-    # Save figure
-    fig.savefig(filename)
-
-    # Add to report in session state
-    if 'report_sections' not in st.session_state:
-        st.session_state['report_sections'] = []
-
-    st.session_state['report_sections'].append({
-        "title": title,
-        "image": filename,
-        "text": insight_text
-    })
-
-    st.success("✅ Added to report!")
-
-
 
 def call_gemini_api(prompt):
     try:
@@ -146,6 +122,38 @@ def summarize_multi(stats: dict, top_corrs: list[str]):
     return col_summaries, corr_summary
 
 
+def save_and_report(fig, title, insight_text, filename=None):
+    os.makedirs("plots", exist_ok=True)
+    if not filename:
+        sanitized = title.replace(" ", "_").replace(":", "").replace(",", "")
+        filename = f"plots/{sanitized}.png"
+    fig.savefig(filename)
+    sec = {"title": title, "image": filename, "text": insight_text}
+    st.session_state.setdefault('report_sections', []).append(sec)
+    st.success("✅ Added to report!")
+    
+
+def show_report_preview():
+    st.header("📝 AI Report Preview")
+
+    report = st.session_state.get("report_sections", [])
+
+    if not report:
+        st.info("No report sections added yet.")
+        return
+
+    for i, section in enumerate(report):
+        st.markdown(f"### {i+1}. {section['title']}")
+        if "image" in section:
+            st.image(section["image"], caption=section.get("title", "AI Report"), use_container_width=True)
+        else:
+            st.warning(f"⚠️ No image for section: {section.get('title', 'Untitled Section')}")
+        st.markdown("**AI Insight:**")
+        if "text" in section:
+            st.info(section["text"])
+        else:
+            st.warning(f"⚠️ No insight for section: {section.get('title', 'Unknown')}")
+        st.markdown("---")
 
 #helper function for Advance plot:
 
@@ -178,17 +186,18 @@ def show():
     )
 
 #_____________________________________________________________________________________________________________________________________________
+ 
     # Univariate Analysis (Single Column)
     if vis_type == "Univariate Analysis":
         st.subheader("📈 Univariate Analysis")
 
-        # Select any column
+        # 1) Column selector
         cols = df.columns.tolist()
         col = st.selectbox("Select Column", cols, key="uni_col")
         series = df[col].dropna()
         is_num = np.issubdtype(series.dtype, np.number)
 
-        # Plot
+        # 2) Plot
         fig, ax = plt.subplots()
         if is_num:
             sns.histplot(series, kde=True, bins=30, ax=ax)
@@ -200,42 +209,52 @@ def show():
         ax.set_title(f"{graph_type}: {col}")
         st.pyplot(fig)
 
-        # Generate AI Insight
-        if st.button("🧠 Generate AI Insight for Univariate"):
-            stats = get_uni_stats(series)
+        # 3) Generate AI Insight button
+        insight = None
+        if st.button("🧠 Generate AI Insight for Univariate", key=f"gen_uni_{col}"):
+            stats   = get_uni_stats(series)
             summary = summarize_uni(stats, is_num)
-
             if is_num:
                 prompt = f"""
-    You are a data assistant. Given a {graph_type} of '{col}':
-    • {summary}
+                You are a data assistant. Given a {graph_type} of '{col}':
+                • {summary}
 
-    Write **3–4 very short** bullet insights about skewness, peaks, spread, outliers.
-    Avoid recommendations.
-    """.strip()
+                Write **3–4 very short** bullet insights about skewness, peaks, spread, outliers.
+                Avoid recommendations.
+                """.strip()
             else:
                 prompt = f"""
-    You are a data assistant. Given a {graph_type} of '{col}':
-    • {summary}
+                You are a data assistant. Given a {graph_type} of '{col}':
+                • {summary}
 
-    Write **3–4 very short** bullet insights about category distribution and rare values.
-    Avoid recommendations.
-    """.strip()
+                Write **3–4 very short** bullet insights about category distribution and rare values.
+                Avoid recommendations.
+                """.strip()
 
             try:
-                insight = call_gemini_api(prompt)
-                # Keep only first 4 bullets
-                lines = [l for l in insight.split("\n") if l.strip().startswith("-")][:4]
-                insight = "\n".join(lines) if lines else insight
+                raw = call_gemini_api(prompt)
+                # keep only up to 4 bullet lines
+                lines = [l for l in raw.split("\n") if l.strip().startswith("-")][:4]
+                insight = "\n".join(lines) if lines else raw
 
-                st.markdown("**📌 AI Insight:**")
-                st.info(insight)
-
-                if st.button("📄 Add to Report"):
-                    title = f"Univariate: {col}"
-                    save_and_report(fig, title, insight)
+                st.session_state[f"insight_{col}"] = insight
+                st.session_state[f"fig_{col}"] = fig
             except Exception as e:
                 st.error(f"❌ AI call failed: {e}")
+
+        # 4) Display AI Insight (if generated)
+        insight_key = f"insight_{col}"
+        fig_key = f"fig_{col}"
+        if insight_key in st.session_state:
+            st.markdown("**📌 AI Insight:**")
+            st.info(st.session_state[insight_key])
+
+            if st.button("📄 Add to Report", key=f"add_uni_{col}"):
+                st.write("YES YES")  # ✅ this will now execute
+                save_and_report(
+                    st.session_state[fig_key], f"Univariate: {col}", st.session_state[insight_key]
+                )
+                st.success("✅ Univariate section added to report!")
 #_____________________________________________________________________________________________________________________________________________
     # Bivariate Analysis (Two Columns)
     elif vis_type == "Bivariate Analysis":
@@ -244,7 +263,7 @@ def show():
         cols = df.columns.tolist()
         x_col = st.selectbox("X‑axis", cols, key="x_biv")
         y_col = st.selectbox("Y‑axis", cols, key="y_biv")
-
+        biv_key = f"{x_col}_vs_{y_col}" 
         # Choose plot type based on dtypes
         x_num = np.issubdtype(df[x_col].dtype, np.number)
         y_num = np.issubdtype(df[y_col].dtype, np.number)
@@ -322,17 +341,31 @@ def show():
                     """
 
             try:
-                insight = call_gemini_api(prompt)
-                st.markdown("**📌 AI Insight:**")
-                st.info(insight)
+                raw = call_gemini_api(prompt)
+                # keep only up to 4 bullet lines
+                lines = [l for l in raw.split("\n") if l.strip().startswith("-")][:4]
+                insight = "\n".join(lines) if lines else raw
 
-                if st.button("📄 Add to Report"):
-                    title = f"Bivariate: {x_col} vs {y_col}"
-                    filename = f"plots/bivariate_{x_col}_vs_{y_col}.png"
-                    save_and_report(fig, title, insight, filename)
+                st.session_state[f"insight_{biv_key}"] = insight
+                st.session_state[f"fig_{biv_key}"] = fig
             except Exception as e:
-                st.error(f"Error calling AI: {e}")
+                st.error(f"❌ AI call failed: {e}")
 
+        # 4) Display AI Insight (if generated)
+        insight_key = f"insight_{biv_key}"
+        fig_key = f"fig_{biv_key}"
+
+        if insight_key in st.session_state:
+            st.markdown("**📌 AI Insight:**")
+            st.info(st.session_state[insight_key])
+
+            if st.button("📄 Add to Report", key=f"add_biv_{biv_key}"):
+                save_and_report(
+                    st.session_state[fig_key],
+                    f"Bivariate: {x_col} vs {y_col}",
+                    st.session_state[insight_key]
+                )
+                st.success("✅ Bivariate section added to report!")
 #__________________________________________________________________________________________________________________________________
     elif vis_type == "Multivariate Analysis":
         st.subheader("📊 Multivariate Analysis")
@@ -340,9 +373,21 @@ def show():
         # 1. Column selection
         numeric_cols = df.select_dtypes(include='number').columns.tolist()
         selected = st.multiselect("Select ≥2 numeric columns", numeric_cols, key="multi_cols")
+        
+        key = None
+        insight = None
+        fig = None
+        prompt = None
+
+        if selected:
+            key = "multivariate_" + "_".join(selected)
+
+
         if len(selected) < 2:
             st.warning("Please select at least two numeric columns.")
             st.stop()
+
+        key = "multivariate_" + "_".join(selected)
 
         # 2. Plot
         fig = sns.pairplot(df[selected])
@@ -368,23 +413,30 @@ def show():
                 """.strip()
 
             try:
-                insight = call_gemini_api(prompt)
-                # keep first 4 bullets
-                lines = [l for l in insight.split("\n") if l.strip().startswith("-")][:4]
-                insight = "\n".join(lines) if lines else insight
+                raw = call_gemini_api(prompt)
+                bullets = [l for l in raw.split("\n") if l.strip().startswith("-")][:4]
+                insight = "\n".join(bullets) if bullets else raw
 
                 st.markdown("**📌 AI Insight:**")
                 st.info(insight)
 
-                # 4. Add to report
-                if st.button("📄 Add to Report"):
-                    key = "_".join(selected)
-                    title = f"Multivariate Analysis: {', '.join(selected)}"
-                    filename = f"plots/multivariate_{key}.png"
-                    save_and_report(fig, title, insight, filename)
+                # store in session state
+                st.session_state[f"{key}_insight"] = insight
+                st.session_state[f"{key}_fig"] = fig
+
             except Exception as e:
                 st.error(f"❌ AI call failed: {e}")
-            
+
+        # 5. Add to Report if insight exists
+        if f"{key}_insight" in st.session_state:
+            if st.button("📄 Add to Report", key=f"add_multi_{key}"):
+                save_and_report(
+                    st.session_state[f"{key}_fig"],
+                    f"Multivariate: {', '.join(selected)}",
+                    st.session_state[f"{key}_insight"]
+                )
+                st.success("✅ Multivariate plot added to report!")
+                
     # Advanced Visualizations (Pairplot, Heatmap)
         
     elif vis_type == "Advanced Visualizations":
@@ -451,19 +503,33 @@ def show():
 
         # — AI Insight & Report —
         if st.button("🧠 Generate AI Insight"):
-            try:
-                insight = call_gemini_api(prompt)
-                bullets = [l for l in insight.split("\n") if l.strip().startswith("-")][:4]
-                insight = "\n".join(bullets) if bullets else insight
+            if prompt is not None:
+                try:
+                    raw = call_gemini_api(prompt)
+                    bullets = [l for l in raw.split("\n") if l.strip().startswith("-")][:4]
+                    insight = "\n".join(bullets) if bullets else raw
 
-                st.markdown("**📌 AI Insight:**")
-                st.info(insight)
+                    st.markdown("**📌 AI Insight:**")
+                    st.info(insight)
 
-                if st.button("📄 Add to Report"):
-                    title = f"Advanced: {plot_type}"
-                    filename = f"plots/advanced_{plot_type}.png"
-                    save_and_report(fig, title, insight, filename)
-            except Exception as e:
-                st.error(f"❌ AI call failed: {e}")
+                    # Add to session state for consistent state-saving
+                    st.session_state[f"adv_insight_{key}"] = insight
+                    st.session_state[f"adv_fig_{key}"] = fig
 
+                except Exception as e:
+                    st.error(f"❌ AI call failed: {e}")
+
+        # Show "Add to Report" only if insight exists
+        insight_key = f"adv_insight_{key}"
+        fig_key = f"adv_fig_{key}"
+
+        if insight_key in st.session_state:
+            if st.button("📄 Add to Report", key=f"add_adv_{key}"):
+                save_and_report(
+                    st.session_state[fig_key],
+                    f"Advanced: {plot_type}",
+                    st.session_state[insight_key]
+                )
+                st.success("✅ Advanced visualization added to report!")
     st.success("✅ Visualization Complete! Modify selections to explore more insights.")
+    show_report_preview()   

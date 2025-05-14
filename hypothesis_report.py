@@ -8,7 +8,9 @@ from fpdf import FPDF
 from datetime import datetime
 import google.generativeai as genai
 import numpy as np
+from utils import save_and_report
 
+st.session_state.setdefault('report_sections', [])
 
 # ——— Gemini Setup ———
 GENAI_API_KEY = "AIzaSyDWqKiiG3etvFCVIk4_GTuiVTvqK45VUrc"
@@ -39,6 +41,7 @@ def save_pdf(sections: list[dict], filename="eda_report.pdf") -> str:
 
     # Sections
     for sec in sections:
+        
         pdf.set_font("Arial", "B", 14)
         pdf.multi_cell(0, 8, sec["title"])
         pdf.set_font("Arial", size=12)
@@ -50,13 +53,14 @@ def save_pdf(sections: list[dict], filename="eda_report.pdf") -> str:
             except Exception:
                 pass
         pdf.ln(8)
+        pdf.add_page()
 
     pdf.output(filename)
     return filename
 
 # ——— Report Builder ———
 def show():
-    st.title("📑 Hypothesis & AI Report")
+    st.title("📑 AI Report")
 
     if "dataframe" not in st.session_state:
         st.warning("⚠️ Please upload and clean your dataset first.")
@@ -65,8 +69,10 @@ def show():
 
     rows, cols = df.shape
 
+
     # ——— 1) Dataset Overview ———
     st.subheader("📊 Dataset Overview")
+    
     # Build a schema list for the AI
     col_info = "\n".join(f"- {c}: {str(dt)}" for c, dt in df.dtypes.items())
     overview_prompt = f"""
@@ -83,13 +89,13 @@ def show():
     saved = st.session_state.get("report_sections", [])
     st.subheader("🖼️ Collected Analysis Sections")
     if not saved:
-        st.info("You haven’t added any visuals yet. Go back to the Visualizations page and click 📄 Add to Report under each chart you want.")
+        st.info("You haven't added any visuals yet. Go back to the Visualizations page and click 📄 Add to Report under each chart you want.")
     else:
         for sec in saved:
             st.markdown(f"### {sec['title']}")
             st.write(sec["text"])
             if sec.get("image"):
-                st.image(sec["image"], use_column_width=True)
+                st.image(sec["image"], use_container_width=True)
             sections.append(sec)
 
     # ——— 3) Key Insights & Hypotheses ———
