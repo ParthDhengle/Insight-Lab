@@ -2,7 +2,8 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 def main():
-    st.set_page_config(page_title="EDA Explorer", layout="wide")
+    st.set_page_config(page_title="Insight Lab", page_icon="🔍")
+
     st.title("🔍 Insight Lab ")
     st.subheader("*AI-Driven Data Insights*")
 
