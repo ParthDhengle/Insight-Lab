@@ -25,15 +25,28 @@ def call_gemini_api(prompt: str) -> str:
         return f"[AI error]: {e}"
 
 # ——— PDF Export Helper ———
+def sanitize_text(text):
+    return text.encode('latin-1', 'replace').decode('latin-1')
+from fpdf import FPDF
+from datetime import datetime
+import os
+
 def save_pdf(sections: list[dict], filename="eda_report.pdf") -> str:
     pdf = FPDF()
     pdf.set_auto_page_break(True, margin=15)
-    
+
+    # Add Unicode-capable font
+    font_path = "DejaVuSans.ttf"
+    if not os.path.exists(font_path):
+        raise FileNotFoundError("DejaVuSans.ttf not found. Please add it to the project folder.")
+
+    pdf.add_font("DejaVu", "", font_path, uni=True)
+
     # Title page
     pdf.add_page()
-    pdf.set_font("Arial", "B", 20)
+    pdf.set_font("DejaVu", "", 20)
     pdf.cell(0, 10, "Exploratory Data Analysis Report", ln=True, align="C")
-    pdf.set_font("Arial", size=12)
+    pdf.set_font("DejaVu", "", 12)
     pdf.cell(0, 8,
              f"Generated on: {datetime.now():%Y-%m-%d %H:%M:%S}",
              ln=True, align="C")
@@ -41,10 +54,9 @@ def save_pdf(sections: list[dict], filename="eda_report.pdf") -> str:
 
     # Sections
     for sec in sections:
-        
-        pdf.set_font("Arial", "B", 14)
+        pdf.set_font("DejaVu", "", 14)
         pdf.multi_cell(0, 8, sec["title"])
-        pdf.set_font("Arial", size=12)
+        pdf.set_font("DejaVu", "", 12)
         pdf.multi_cell(0, 6, sec["text"])
         if sec.get("image"):
             try:
@@ -57,6 +69,7 @@ def save_pdf(sections: list[dict], filename="eda_report.pdf") -> str:
 
     pdf.output(filename)
     return filename
+
 
 # ——— Report Builder ———
 def show():
