@@ -1,5 +1,6 @@
 # 🔍 InsightLab – AI-Powered Data Insight & Reporting Platform
-https://insightlab.streamlit.app/
+##https://insightlab.streamlit.app/
+
 **InsightLab** is a private, all-in-one EDA (Exploratory Data Analysis) platform built for professionals, startups, and businesses. It allows users to clean data, visualize patterns, generate AI-driven insights, and build shareable reports — all without writing a single line of code.
 
 > **Slogan:**  
